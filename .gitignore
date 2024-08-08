@@ -21,3 +21,5 @@ go/vendor/
 *.pyc
 
 java/.java-version
+
+java/src/main/resources/arguments.personal.yaml

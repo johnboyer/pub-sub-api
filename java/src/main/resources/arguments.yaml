@@ -16,10 +16,10 @@ LOGIN_URL: null
 
 # For authentication, you can use either username/password or accessToken/tenantId types.
 # Either one of the combinations is required. Please specify `null` values to the unused type.
-# Your Salesforce Username
+# Your Salesforce Username (REQUIRED)
 USERNAME: null
-# Your Salesforce Password
-PASSWORD: null
+# Your Salesforce Password + Security Token (REQUIRED)
+PASSWORD: <YOUR-PASSWORD><YOUR-SECURITY-TOKEN>
 # Your Salesforce org Tenant ID
 TENANT_ID: null
 # Your Salesforce Session Token
@@ -29,6 +29,7 @@ ACCESS_TOKEN: null
 # Optional Configurations:
 # =========================
 # Topic to publish/subscribe to (default: /event/Order_Event__e)
+# If your topic has a different name, set it here
 TOPIC: null
 # Number of Events to publish in single or separate batches (default: 5)
 # Used only by PublishStream.java
