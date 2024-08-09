@@ -18,7 +18,7 @@ class FetchResponseStreamObserver implements StreamObserver<FetchResponse> {
     protected static final Logger logger = LoggerFactory.getLogger(FetchResponseStreamObserver.class);
     private final ObserverContext subscribe;
 
-    private AtomicInteger receivedEvents = new AtomicInteger(0);
+    private final AtomicInteger receivedEvents = new AtomicInteger(0);
     // Replay should be stored in replay store as bytes since replays are opaque.
     private volatile ByteString storedReplay;
 
@@ -59,20 +59,20 @@ class FetchResponseStreamObserver implements StreamObserver<FetchResponse> {
     }
 
     @Override
-    public void onError(Throwable t) {
-        CommonContext.printStatusRuntimeException("Error during Subscribe", (Exception) t);
+    public void onError(Throwable throwable) {
+        CommonContext.printStatusRuntimeException("Error during Subscribe", (Exception) throwable);
         logger.info("Retries remaining: " + Subscribe.retriesLeft.get());
         if (Subscribe.retriesLeft.get() == 0) {
             logger.info("Exhausted all retries. Closing Subscription.");
             Subscribe.isActive.set(false);
         } else {
             Subscribe.retriesLeft.decrementAndGet();
-            Metadata trailers = ((StatusRuntimeException)t).getTrailers() != null ? ((StatusRuntimeException)t).getTrailers() : null;
+            Metadata trailers = ((StatusRuntimeException)throwable).getTrailers() != null ? ((StatusRuntimeException)throwable).getTrailers() : null;
             String errorCode = (trailers != null && trailers.get(Metadata.Key.of("error-code", Metadata.ASCII_STRING_MARSHALLER)) != null) ?
                     trailers.get(Metadata.Key.of("error-code", Metadata.ASCII_STRING_MARSHALLER)) : null;
 
             // Closing the old stream for sanity
-            subscribe.serverStream.onCompleted();
+            subscribe.closeFetchRequestStream();
 
             ReplayPreset retryReplayPreset = ReplayPreset.LATEST;
             ByteString retryReplayId = null;
@@ -85,7 +85,7 @@ class FetchResponseStreamObserver implements StreamObserver<FetchResponse> {
                 retryReplayPreset = ReplayPreset.EARLIEST;
             } else if (errorCode.contains(Subscribe.ERROR_SERVICE_UNAVAILABLE)) {
                 logger.info("Service currently unavailable. Trying again with LATEST Replay.");
-                retryDelay = Subscribe.SERVICE_UNAVAILABLE_WAIT_BEFORE_RETRY_SECONDS * 1000;
+                retryDelay = Subscribe.SERVICE_UNAVAILABLE_WAIT_BEFORE_RETRY_SECONDS * 1000L;
             } else {
                 retryDelay = subscribe.getBackoffWaitTime();
                 if (storedReplay != null) {
@@ -98,7 +98,7 @@ class FetchResponseStreamObserver implements StreamObserver<FetchResponse> {
 
             }
             logger.info("Retrying in " + retryDelay + "ms.");
-            subscribe.retryScheduler.schedule(new Subscribe.RetryRequestSender(retryReplayPreset, retryReplayId), retryDelay, TimeUnit.MILLISECONDS);
+            subscribe.replay(retryReplayPreset, retryReplayId, retryDelay);
         }
     }
 

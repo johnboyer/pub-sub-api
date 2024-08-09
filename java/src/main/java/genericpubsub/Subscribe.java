@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import com.salesforce.eventbus.protobuf.ConsumerEvent;
 import com.salesforce.eventbus.protobuf.FetchRequest;
-import com.salesforce.eventbus.protobuf.FetchResponse;
 import com.salesforce.eventbus.protobuf.ReplayPreset;
 import com.salesforce.eventbus.protobuf.SchemaRequest;
 import org.apache.avro.Schema;
@@ -44,7 +43,7 @@ public class Subscribe extends CommonContext implements ObserverContext {
     public static AtomicInteger retriesLeft = new AtomicInteger(MAX_RETRIES);
     private StreamObserver<FetchRequest> serverStream;
     private Map<String, Schema> schemaCache = new ConcurrentHashMap<>();
-    private final StreamObserver<FetchResponse> responseStreamObserver;
+    private final FetchResponseStreamObserver responseStreamObserver;
     private final ReplayPreset replayPreset;
     private final ByteString customReplayId;
     private final ScheduledExecutorService retryScheduler;
@@ -54,9 +53,9 @@ public class Subscribe extends CommonContext implements ObserverContext {
     public Subscribe(ExampleConfigurations exampleConfigurations) {
         super(exampleConfigurations);
         isActive.set(true);
-        this.exampleConfigurations = exampleConfigurations;
-        this.BATCH_SIZE = exampleConfigurations.getNumberOfEventsToSubscribeInEachFetchRequest();
-        this.responseStreamObserver = getDefaultResponseStreamObserver();
+        Subscribe.exampleConfigurations = exampleConfigurations;
+        BATCH_SIZE = exampleConfigurations.getNumberOfEventsToSubscribeInEachFetchRequest();
+        this.responseStreamObserver = new FetchResponseStreamObserver(this);
         this.setupTopicDetails(exampleConfigurations.getTopic(), false, false);
         this.replayPreset = exampleConfigurations.getReplayPreset();
         this.customReplayId = exampleConfigurations.getReplayId();
@@ -64,11 +63,11 @@ public class Subscribe extends CommonContext implements ObserverContext {
         this.processChangedFields = exampleConfigurations.getProcessChangedFields();
     }
 
-    public Subscribe(ExampleConfigurations exampleConfigurations, StreamObserver<FetchResponse> responseStreamObserver) {
+    public Subscribe(ExampleConfigurations exampleConfigurations, FetchResponseStreamObserver responseStreamObserver) {
         super(exampleConfigurations);
         isActive.set(true);
-        this.exampleConfigurations = exampleConfigurations;
-        this.BATCH_SIZE = exampleConfigurations.getNumberOfEventsToSubscribeInEachFetchRequest();
+        Subscribe.exampleConfigurations = exampleConfigurations;
+        BATCH_SIZE = exampleConfigurations.getNumberOfEventsToSubscribeInEachFetchRequest();
         this.responseStreamObserver = responseStreamObserver;
         this.setupTopicDetails(exampleConfigurations.getTopic(), false, false);
         this.replayPreset = exampleConfigurations.getReplayPreset();
@@ -86,7 +85,8 @@ public class Subscribe extends CommonContext implements ObserverContext {
         // Thread being blocked here for demonstration of this specific example. Blocking the thread in production is not recommended.
         while(isActive.get()) {
             waitInMillis(5_000);
-            logger.info("Subscription Active. Received a total of " + receivedEvents.get() + " events.");
+            logger.info("Subscription Active. Received a total of " +
+                    responseStreamObserver.getReceivedEvents().get() + " events.");
         }
     }
 
@@ -113,6 +113,7 @@ public class Subscribe extends CommonContext implements ObserverContext {
      * Function to decide the delay (in ms) in sending FetchRequests using
      * Binary Exponential Backoff - Waits for 2^(Max Number of Retries - Retries Left) * 1000.
      */
+    @Override
     public long getBackoffWaitTime() {
         long waitTime = (long) (Math.pow(2, MAX_RETRIES - retriesLeft.get()) * 1000);
         return waitTime;
@@ -132,22 +133,13 @@ public class Subscribe extends CommonContext implements ObserverContext {
     }
 
     /**
-     * Creates a StreamObserver for handling the incoming FetchResponse messages from the server.
-     *
-     * @return
-     */
-    private StreamObserver<FetchResponse> getDefaultResponseStreamObserver() {
-        return new FetchResponseStreamObserver(this);
-    }
-
-    /**
      * A Runnable class that is used to send the FetchRequests by making a new Subscribe call while retrying on
      * receiving an error. This is done in order to avoid blocking the thread while waiting for retries. This class is
      * passed to the ScheduledExecutorService which will asynchronously send the FetchRequests during retries.
      */
     private class RetryRequestSender implements Runnable {
-        private ReplayPreset retryReplayPreset;
-        private ByteString retryReplayId;
+        private final ReplayPreset retryReplayPreset;
+        private final ByteString retryReplayId;
         public RetryRequestSender(ReplayPreset replayPreset, ByteString replayId) {
             this.retryReplayPreset = replayPreset;
             this.retryReplayId = replayId;
@@ -176,6 +168,11 @@ public class Subscribe extends CommonContext implements ObserverContext {
     }
 
     @Override
+    public void closeFetchRequestStream() {
+        serverStream.onCompleted();
+    }
+
+    @Override
     public void deactivate() {
         isActive.set(false);
     }
@@ -183,6 +180,11 @@ public class Subscribe extends CommonContext implements ObserverContext {
     @Override
     public void fetchMore() {
         fetchMore(BATCH_SIZE);
+    }
+
+    @Override
+    public void replay(ReplayPreset replayPreset, ByteString replayId, long retryDelay) {
+        retryScheduler.schedule(new RetryRequestSender(replayPreset, replayId), retryDelay, TimeUnit.MILLISECONDS);
     }
 
     /**
