@@ -3,19 +3,19 @@ package com.salesforce.sobject;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import lombok.NonNull;
 import lombok.Value;
-import org.apache.avro.generic.GenericRecord;
-
-import java.util.Optional;
+import lombok.experimental.SuperBuilder;
 
 
+/**
+ * Opportunity class
+ * <a href="https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_opportunity.htm">Opportunity Field Reference</a>
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @EqualsAndHashCode(callSuper = true)
-@Builder
+@SuperBuilder
 @AllArgsConstructor
 @NoArgsConstructor(force = true)
 @Value
@@ -124,10 +124,4 @@ public class Opportunity extends BaseObject {
      * ForeignKey:EntityId
      */
     CharSequence lastCloseDateChangedHistoryId;
-
-    public static Optional<Opportunity> from(@NonNull GenericRecord genericRecord) {
-
-        return Optional.empty();
-
-    }
 }
