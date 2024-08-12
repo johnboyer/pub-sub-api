@@ -5,16 +5,16 @@ import java.io.UnsupportedEncodingException;
 import java.net.ConnectException;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.util.ByteBufferContentProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -24,8 +24,8 @@ import org.xml.sax.helpers.DefaultHandler;
  * Salesforce SOAP API and retrieving the tenandId and session token which will be used to create
  * CallCredentials. It also has a static subclass that parses the LoginResponse.
  */
+@Slf4j
 public class SessionTokenService {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SessionTokenService.class);
 
     private static final String ENV_END = "</soapenv:Body></soapenv:Envelope>";
     private static final String ENV_START =
@@ -60,7 +60,7 @@ public class SessionTokenService {
     public APISessionCredentials login(String loginEndpoint, String user, String pwd, boolean useProvidedLoginUrl) throws Exception {
         URL endpoint;
         endpoint = new URL(new URL(loginEndpoint), SERVICES_SOAP_PARTNER_ENDPOINT);
-        LOGGER.trace("requesting session token from {}", endpoint);
+        log.trace("requesting session token from {}", endpoint);
         Request post = httpClient.POST(endpoint.toURI());
         post.content(new ByteBufferContentProvider("text/xml", ByteBuffer.wrap(soapXmlForLogin(user, pwd))));
         post.header("SOAPAction", "''");
@@ -91,7 +91,7 @@ public class SessionTokenService {
             }
         }
 
-        LOGGER.debug("created session token credentials for {} from {}", parser.organizationId, url);
+        log.debug("created session token credentials for {} from {}", parser.organizationId, url);
         return new APISessionCredentials(parser.organizationId, url, token);
     }
 
@@ -181,6 +181,6 @@ public class SessionTokenService {
 
     private static byte[] soapXmlForLogin(String username, String password) throws UnsupportedEncodingException {
         return (ENV_START + "  <urn:login>" + "    <urn:username>" + username + "</urn:username>" + "    <urn:password>"
-                + password + "</urn:password>" + "  </urn:login>" + ENV_END).getBytes("UTF-8");
+                + password + "</urn:password>" + "  </urn:login>" + ENV_END).getBytes(StandardCharsets.UTF_8);
     }
 }

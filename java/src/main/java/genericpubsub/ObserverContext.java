@@ -2,9 +2,7 @@ package genericpubsub;
 
 import com.google.protobuf.ByteString;
 import com.salesforce.eventbus.protobuf.ConsumerEvent;
-import com.salesforce.eventbus.protobuf.FetchRequest;
 import com.salesforce.eventbus.protobuf.ReplayPreset;
-import io.grpc.stub.StreamObserver;
 
 import java.io.IOException;
 

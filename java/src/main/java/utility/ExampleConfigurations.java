@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.yaml.snakeyaml.Yaml;
 
 import com.google.protobuf.ByteString;
@@ -15,6 +17,8 @@ import com.salesforce.eventbus.protobuf.ReplayPreset;
  * The configurations can be read from a YAML file or created directly via an object. It also sets
  * default values when an optional configuration is not specified.
  */
+@Getter
+@Setter
 public class ExampleConfigurations {
     private String username;
     private String password;
@@ -116,151 +120,6 @@ public class ExampleConfigurations {
         this.managedSubscriptionId = managedSubId;
     }
 
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public String getLoginUrl() {
-        return loginUrl;
-    }
-
-    public void setLoginUrl(String loginUrl) {
-        this.loginUrl = loginUrl;
-    }
-
-    public String getTenantId() {
-        return tenantId;
-    }
-
-    public void setTenantId(String tenantId) {
-        this.tenantId = tenantId;
-    }
-
-    public String getAccessToken() {
-        return accessToken;
-    }
-
-    public void setAccessToken(String accessToken) {
-        this.accessToken = accessToken;
-    }
-
-    public String getPubsubHost() {
-        return pubsubHost;
-    }
-
-    public void setPubsubHost(String pubsubHost) {
-        this.pubsubHost = pubsubHost;
-    }
-
-    public int getPubsubPort() {
-        return pubsubPort;
-    }
-
-    public void setPubsubPort(int pubsubPort) {
-        this.pubsubPort = pubsubPort;
-    }
-
-    public Integer getNumberOfEventsToPublish() {
-        return numberOfEventsToPublish;
-    }
-
-    public void setNumberOfEventsToPublish(Integer numberOfEventsToPublish) {
-        this.numberOfEventsToPublish = numberOfEventsToPublish;
-    }
-
-    public Boolean getSinglePublishRequest() {
-        return singlePublishRequest;
-    }
-
-    public void setSinglePublishRequest(Boolean singlePublishRequest) {
-        this.singlePublishRequest = singlePublishRequest;
-    }
-
-    public int getNumberOfEventsToSubscribeInEachFetchRequest() {
-        return numberOfEventsToSubscribeInEachFetchRequest;
-    }
-
-    public void setNumberOfEventsToSubscribeInEachFetchRequest(int numberOfEventsToSubscribeInEachFetchRequest) {
-        this.numberOfEventsToSubscribeInEachFetchRequest = numberOfEventsToSubscribeInEachFetchRequest;
-    }
-
-    public Boolean getProcessChangedFields() {
-        return processChangedFields;
-    }
-
-    public void setProcessChangedFields(Boolean processChangedFields) {
-        this.processChangedFields = processChangedFields;
-    }
-
-    public boolean usePlaintextChannel() {
-        return plaintextChannel;
-    }
-
-    public void setPlaintextChannel(boolean plaintextChannel) {
-        this.plaintextChannel = plaintextChannel;
-    }
-
-    public Boolean useProvidedLoginUrl() {
-        return providedLoginUrl;
-    }
-
-    public String getTopic() {
-        return topic;
-    }
-
-    public void setTopic(String topic) {
-        this.topic = topic;
-    }
-
-    public void setProvidedLoginUrl(Boolean providedLoginUrl) {
-        this.providedLoginUrl = providedLoginUrl;
-    }
-
-    public ReplayPreset getReplayPreset() {
-        return replayPreset;
-    }
-
-    public void setReplayPreset(ReplayPreset replayPreset) {
-        this.replayPreset = replayPreset;
-    }
-
-    public ByteString getReplayId() {
-        return replayId;
-    }
-
-    public void setReplayId(ByteString replayId) {
-        this.replayId = replayId;
-    }
-
-    public String getManagedSubscriptionId() {
-        return managedSubscriptionId;
-    }
-
-    public void setManagedSubscriptionId(String managedSubscriptionId) {
-        this.managedSubscriptionId = managedSubscriptionId;
-    }
-
-    public String getDeveloperName() {
-        return developerName;
-    }
-
-    public void setDeveloperName(String developerName) {
-        this.developerName = developerName;
-    }
-
-
     /**
      * NOTE: replayIds are meant to be opaque (See docs: https://developer.salesforce.com/docs/platform/pub-sub-api/guide/intro.html)
      * and this is used for example purposes only. A long-lived subscription client will use the stored replay to
@@ -278,5 +137,13 @@ public class ExampleConfigurations {
         }
         replayId = ByteString.copyFrom(b);
         return replayId;
+    }
+
+    public boolean usePlaintextChannel() {
+        return plaintextChannel;
+    }
+
+    public boolean useProvidedLoginUrl() {
+        return providedLoginUrl;
     }
 }

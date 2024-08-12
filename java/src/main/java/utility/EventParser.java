@@ -22,12 +22,11 @@ import org.apache.avro.util.Utf8;
  */
 public class EventParser {
 
-    private Schema schema;
-    private DatumReader<GenericRecord> datumReader;
+    private final Schema schema;
 
     public EventParser(Schema schema) {
         this.schema = schema;
-        this.datumReader = new GenericDatumReader<GenericRecord>(schema);
+        DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(schema);
     }
 
     /**
@@ -73,7 +72,7 @@ public class EventParser {
 
                     // interpret the parent field name from mapping of parentFieldPos ->
                     // childFieldbitMap
-                    Schema.Field parentField = schema.getFields().get(Integer.valueOf(bitmapMapStrings[0]));
+                    Schema.Field parentField = schema.getFields().get(Integer.parseInt(bitmapMapStrings[0]));
                     Schema childSchema = getValueSchema(parentField.schema());
 
                     if (childSchema.getType().equals(Schema.Type.RECORD)) { // make sure we're really dealing with
@@ -86,7 +85,7 @@ public class EventParser {
                         List<String> fullFieldNames = new ArrayList<>();
                         fieldNamesFromBitmap(childSchema, bitmapMapStrings[1]).stream()
                                 .map(col -> parentFieldName + "." + col).forEach(fullFieldNames::add);
-                        if (fullFieldNames.size() > 0) {
+                        if (!fullFieldNames.isEmpty()) {
                             itr.remove();
                             // when all nested fields under a compound got nulled out at once by customer,
                             // we recognize the top level field instead of trying to list every single
@@ -94,7 +93,7 @@ public class EventParser {
                             if (fullFieldNames.size() == nestedSize) {
                                 itr.add(parentFieldName);
                             } else {
-                                fullFieldNames.stream().forEach(itr::add);
+                                fullFieldNames.forEach(itr::add);
                             }
                         }
                     }
@@ -114,7 +113,7 @@ public class EventParser {
         BitSet bitSet = convertHexStringToBitSet(bitmap);
         List<String> fieldList = new ArrayList<>();
         bitSet.stream().mapToObj(pos -> schema.getFields().get(pos).name())
-                .forEach(fieldName -> fieldList.add(fieldName));
+                .forEach(fieldList::add);
         return fieldList;
     }
 

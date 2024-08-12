@@ -1,8 +1,8 @@
 package utility;
 
-import java.util.UUID;
 import java.util.concurrent.Executor;
 
+import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,9 +23,10 @@ public class APISessionCredentials extends CallCredentials {
     // Tenant Id of the customer org
     public static final Metadata.Key<String> TENANT_ID_KEY = keyOf("tenantId");
 
-    private String instanceURL;
-    private String tenantId;
-    private String token;
+    private final String instanceURL;
+    private final String tenantId;
+    @Getter
+    private final String token;
 
     private static final Logger log = LoggerFactory.getLogger(APISessionCredentials.class);
 
@@ -52,9 +53,5 @@ public class APISessionCredentials extends CallCredentials {
 
     private static Metadata.Key<String> keyOf(String name) {
         return Metadata.Key.of(name, Metadata.ASCII_STRING_MARSHALLER);
-    }
-
-    public String getToken() {
-        return token;
     }
 }

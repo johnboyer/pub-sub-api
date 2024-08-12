@@ -2,7 +2,10 @@ package genericpubsub;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -10,6 +13,7 @@ import com.salesforce.eventbus.protobuf.ConsumerEvent;
 import com.salesforce.eventbus.protobuf.FetchRequest;
 import com.salesforce.eventbus.protobuf.ReplayPreset;
 import com.salesforce.eventbus.protobuf.SchemaRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 
@@ -17,7 +21,6 @@ import com.google.protobuf.ByteString;
 
 import io.grpc.stub.StreamObserver;
 import utility.CommonContext;
-import utility.EventParser;
 import utility.ChangeEventUtils;
 import utility.ExampleConfigurations;
 
@@ -32,6 +35,7 @@ import utility.ExampleConfigurations;
  *
  * @author sidd0610
  */
+@Slf4j
 public class Subscribe extends CommonContext implements ObserverContext {
 
     public static int BATCH_SIZE;
@@ -82,12 +86,12 @@ public class Subscribe extends CommonContext implements ObserverContext {
      * Function to start the subscription.
      */
     public void startSubscription() {
-        logger.info("Subscription started for topic: " + busTopicName + ".");
+        log.info("Subscription started for topic: " + busTopicName + ".");
         fetch(BATCH_SIZE, busTopicName, replayPreset, customReplayId);
         // Thread being blocked here for demonstration of this specific example. Blocking the thread in production is not recommended.
         while(isActive.get()) {
             waitInMillis(5_000);
-            logger.info("Subscription Active. Received a total of " +
+            log.info("Subscription Active. Received a total of " +
                     responseStreamObserver.getReceivedEvents().get() + " events.");
         }
     }
@@ -105,7 +109,7 @@ public class Subscribe extends CommonContext implements ObserverContext {
                 .setTopicName(providedTopicName)
                 .setReplayPreset(providedReplayPreset);
         if (providedReplayPreset == ReplayPreset.CUSTOM) {
-            logger.info("Subscription has Replay Preset set to CUSTOM. In this case, the events will be delivered from provided ReplayId.");
+            log.info("Subscription has Replay Preset set to CUSTOM. In this case, the events will be delivered from provided ReplayId.");
             fetchRequestBuilder.setReplayId(providedReplayId);
         }
         serverStream.onNext(fetchRequestBuilder.build());
@@ -149,7 +153,7 @@ public class Subscribe extends CommonContext implements ObserverContext {
         @Override
         public void run() {
             fetch(BATCH_SIZE, busTopicName, retryReplayPreset, retryReplayId);
-            logger.info("Retry FetchRequest Sent.");
+            log.info("Retry FetchRequest Sent.");
         }
     }
 
@@ -167,7 +171,7 @@ public class Subscribe extends CommonContext implements ObserverContext {
             //https://developer.salesforce.com/docs/atlas.en-us.change_data_capture.meta/change_data_capture/cdc_message_structure.htm
             final var header = ChangeEventUtils.getChangeEventHeader(changeEventMessage);
             final var changeType = header.get("changeType").toString();
-            logger.info("Received {} event.", changeType);
+            log.info("Received {} event.", changeType);
 
             if (ChangeEventUtils.isOpportunityChangeEvent(changeEventMessage)) {
                 var opportunityChangeEventProcessor = new OpportunityChangeEventProcessor(changeEventMessage);
@@ -175,7 +179,7 @@ public class Subscribe extends CommonContext implements ObserverContext {
             }
         }
 
-        logger.info("Received event with payload: {} with schema name: {}", changeEventMessage, writerSchema.getName());
+        log.info("Received event with payload: {} with schema name: {}", changeEventMessage, writerSchema.getName());
         if (processChangedFields) {
             // This example expands the changedFields bitmap field in ChangeEventHeader.
             // To expand the other bitmap fields, i.e., diffFields and nulledFields, replicate or modify this code.
@@ -243,7 +247,7 @@ public class Subscribe extends CommonContext implements ObserverContext {
                 retryScheduler.shutdown();
             }
         } catch (Exception e) {
-            logger.info(e.toString());
+            log.info(e.toString());
         }
         super.close();
     }

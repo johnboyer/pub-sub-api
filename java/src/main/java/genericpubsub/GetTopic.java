@@ -5,6 +5,7 @@ import java.io.IOException;
 import com.salesforce.eventbus.protobuf.TopicInfo;
 import com.salesforce.eventbus.protobuf.TopicRequest;
 
+import lombok.extern.slf4j.Slf4j;
 import utility.CommonContext;
 import utility.ExampleConfigurations;
 
@@ -16,6 +17,7 @@ import utility.ExampleConfigurations;
  *
  * @author sidd0610
  */
+@Slf4j
 public class GetTopic extends CommonContext {
 
     public GetTopic(final ExampleConfigurations options) {
@@ -26,10 +28,8 @@ public class GetTopic extends CommonContext {
         // Use the GetTopic RPC to get the topic info for the given topicName.
         TopicInfo topicInfo = blockingStub.getTopic(TopicRequest.newBuilder().setTopicName(topicName).build());
 
-        logger.info("Topic Details:");
-        topicInfo.getAllFields().entrySet().forEach(item -> {
-            logger.info(item.getKey() + " : " + item.getValue());
-        });
+        log.info("Topic Details:");
+        topicInfo.getAllFields().forEach((key, value) -> log.info("{} : {}", key, value));
     }
 
     public static void main(String[] args) throws IOException {

@@ -42,6 +42,7 @@ public class OpportunityChangeEventProcessor {
         //Save the changed fields as functions to avoid reflection
         final Map<String, Function<Opportunity, Object>> changedFields = new HashMap<>();
 
+        //TODO: Implement ChangeEventHeader.changeType
         changeEventHeader.getChangedFields().forEach(field -> {
 
             switch (field) {

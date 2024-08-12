@@ -1,12 +1,28 @@
 package utility;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import com.salesforce.eventbus.protobuf.PubSubGrpc;
+import com.salesforce.eventbus.protobuf.ReplayPreset;
+import com.salesforce.eventbus.protobuf.SchemaInfo;
+import com.salesforce.eventbus.protobuf.SchemaRequest;
+import com.salesforce.eventbus.protobuf.TopicInfo;
+import com.salesforce.eventbus.protobuf.TopicRequest;
+import io.grpc.CallCredentials;
+import io.grpc.Channel;
+import io.grpc.ClientInterceptors;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
+import io.grpc.Metadata;
+import io.grpc.StatusRuntimeException;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
@@ -17,14 +33,9 @@ import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DecoderFactory;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.HttpProxy;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.base.CaseFormat;
 import com.google.protobuf.ByteString;
-import com.salesforce.eventbus.protobuf.*;
-
-import io.grpc.*;
 
 import static utility.EventParser.getFieldListFromBitmap;
 
@@ -33,9 +44,8 @@ import static utility.EventParser.getFieldListFromBitmap;
  * all examples for various purposes like setting up the HttpClient, CallCredentials, stubs for
  * sending requests, generating events etc.
  */
+@Slf4j
 public class CommonContext implements AutoCloseable {
-
-    protected static final Logger logger = LoggerFactory.getLogger(CommonContext.class.getClass());
 
     protected final ManagedChannel channel;
     protected final PubSubGrpc.PubSubStub asyncStub;
@@ -49,12 +59,17 @@ public class CommonContext implements AutoCloseable {
     protected String busTopicName;
     protected TopicInfo topicInfo;
     protected SchemaInfo schemaInfo;
+    /**
+     * -- GETTER --
+     *  General getters.
+     */
+    @Getter
     protected String sessionToken;
 
     public CommonContext(final ExampleConfigurations options) {
         String grpcHost = options.getPubsubHost();
         int grpcPort = options.getPubsubPort();
-        logger.info("Using grpcHost {} and grpcPort {}", grpcHost, grpcPort);
+        log.info("Using grpcHost {} and grpcPort {}", grpcHost, grpcPort);
 
         if (options.usePlaintextChannel()) {
             channel = ManagedChannelBuilder.forAddress(grpcHost, grpcPort).usePlaintext().build();
@@ -91,7 +106,7 @@ public class CommonContext implements AutoCloseable {
         try {
             httpClient.start();
         } catch (Exception e) {
-            logger.error("cannot create HTTP client", e);
+            log.error("cannot create HTTP client", e);
         }
         return httpClient;
     }
@@ -120,7 +135,7 @@ public class CommonContext implements AutoCloseable {
                 throw new IllegalArgumentException("cannot log in with username/password", e);
             }
         } else {
-            logger.warn("Please use either username/password or session token for authentication");
+            log.warn("Please use either username/password or session token for authentication");
             close();
             return null;
         }
@@ -158,7 +173,7 @@ public class CommonContext implements AutoCloseable {
                     schemaInfo = blockingStub.getSchema(schemaRequest);
                 }
             } catch (final Exception ex) {
-                logger.error("Error during fetching topic", ex);
+                log.error("Error during fetching topic", ex);
                 close();
                 throw ex;
             }
@@ -237,19 +252,18 @@ public class CommonContext implements AutoCloseable {
      * @param e
      */
     public static final void printStatusRuntimeException(final String context, final Exception e) {
-        logger.error(context);
+        log.error(context);
 
         if (e instanceof StatusRuntimeException) {
             final StatusRuntimeException expected = (StatusRuntimeException)e;
-            logger.error(" === GRPC Exception ===", e);
+            log.error(" === GRPC Exception ===", e);
             Metadata trailers = ((StatusRuntimeException)e).getTrailers();
-            logger.error(" === Trailers ===");
+            log.error(" === Trailers ===");
             trailers.keys().stream().forEach(t -> {
-                logger.error("[Trailer] = " + t + " [Value] = "
-                        + trailers.get(Metadata.Key.of(t, Metadata.ASCII_STRING_MARSHALLER)));
+                log.error("[Trailer] = {} [Value] = {}", t, trailers.get(Metadata.Key.of(t, Metadata.ASCII_STRING_MARSHALLER)));
             });
         } else {
-            logger.error(" === Exception ===", e);
+            log.error(" === Exception ===", e);
         }
     }
 
@@ -283,19 +297,18 @@ public class CommonContext implements AutoCloseable {
             List<String> changedFields = getFieldListFromBitmap(schema,
                     (GenericData.Record) record.get("ChangeEventHeader"), bitmapField);
             if (!changedFields.isEmpty()) {
-                logger.info("============================");
-                logger.info("       " + bitmapFieldPascal + "       ");
-                logger.info("============================");
+                log.info("============================");
+                log.info("       {}       ", bitmapFieldPascal);
+                log.info("============================");
                 for (String field : changedFields) {
-                    logger.info(field);
+                    log.info(field);
                 }
-                logger.info("============================\n");
+                log.info("============================\n");
             } else {
-                logger.info("No " + bitmapFieldPascal + " found\n");
+                log.info("No {} found\n", bitmapFieldPascal);
             }
         } catch (Exception e) {
-            logger.info("Trying to process " + bitmapFieldPascal + " on unsupported events or no " +
-                    bitmapFieldPascal + " found. Error: " + e.getMessage() + "\n");
+            log.info("Trying to process {} on unsupported events or no {} found. Error: {}\n", bitmapFieldPascal, bitmapFieldPascal, e.getMessage());
         }
     }
 
@@ -350,13 +363,6 @@ public class CommonContext implements AutoCloseable {
     }
 
     /**
-     * General getters.
-     */
-    public String getSessionToken() {
-        return sessionToken;
-    }
-
-    /**
      * Implementation of the close() function from AutoCloseable interface for relinquishing the
      * resources used in the try-with-resource blocks in the examples and the resources used
      * in this class.
@@ -367,14 +373,14 @@ public class CommonContext implements AutoCloseable {
             try {
                 httpClient.stop();
             } catch (Throwable t) {
-                logger.warn("Cannot stop session HTTP client", t);
+                log.warn("Cannot stop session HTTP client", t);
             }
         }
 
         try {
             channel.shutdown().awaitTermination(20, TimeUnit.SECONDS);
         } catch (Throwable t) {
-            logger.warn("Cannot shutdown GRPC channel", t);
+            log.warn("Cannot shutdown GRPC channel", t);
         }
     }
 }

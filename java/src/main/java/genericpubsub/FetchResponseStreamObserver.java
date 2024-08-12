@@ -7,18 +7,24 @@ import com.salesforce.eventbus.protobuf.ReplayPreset;
 import io.grpc.Metadata;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import utility.CommonContext;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Slf4j
 public class FetchResponseStreamObserver implements StreamObserver<FetchResponse> {
-    protected static final Logger logger = LoggerFactory.getLogger(FetchResponseStreamObserver.class);
     private final ObserverContext observerContext;
 
+    /**
+     * -- GETTER --
+     *  General getters and setters.
+     */
+    @Getter
     private final AtomicInteger receivedEvents = new AtomicInteger(0);
     // Replay should be stored in replay store as bytes since replays are opaque.
+    @Getter
     private volatile ByteString storedReplay;
 
     public FetchResponseStreamObserver(ObserverContext observerContext) {
@@ -27,14 +33,14 @@ public class FetchResponseStreamObserver implements StreamObserver<FetchResponse
 
     @Override
     public void onNext(FetchResponse fetchResponse) {
-        logger.info("Received batch of " + fetchResponse.getEventsList().size() + " events");
-        logger.info("RPC ID: " + fetchResponse.getRpcId());
+        log.info("Received batch of {} events", fetchResponse.getEventsList().size());
+        log.info("RPC ID: {}", fetchResponse.getRpcId());
         for(ConsumerEvent ce : fetchResponse.getEventsList()) {
             try {
                 storedReplay  = ce.getReplayId();
                 observerContext.processEvent(ce);
             } catch (Exception e) {
-                logger.info(e.toString());
+                log.info(e.toString());
             }
             receivedEvents.addAndGet(1);
         }
@@ -60,9 +66,9 @@ public class FetchResponseStreamObserver implements StreamObserver<FetchResponse
     @Override
     public void onError(Throwable throwable) {
         CommonContext.printStatusRuntimeException("Error during Subscribe", (Exception) throwable);
-        logger.info("Retries remaining: " + Subscribe.retriesLeft.get());
+        log.info("Retries remaining: {}", Subscribe.retriesLeft.get());
         if (Subscribe.retriesLeft.get() == 0) {
-            logger.info("Exhausted all retries. Closing Subscription.");
+            log.info("Exhausted all retries. Closing Subscription.");
             Subscribe.isActive.set(false);
         } else {
             Subscribe.retriesLeft.decrementAndGet();
@@ -79,41 +85,30 @@ public class FetchResponseStreamObserver implements StreamObserver<FetchResponse
 
             // Retry strategies that can be implemented based on the error type.
             if (errorCode.contains(Subscribe.ERROR_REPLAY_ID_VALIDATION_FAILED) || errorCode.contains(Subscribe.ERROR_REPLAY_ID_INVALID)) {
-                logger.info("Invalid or no replayId provided in FetchRequest for CUSTOM Replay. Trying again with EARLIEST Replay.");
+                log.info("Invalid or no replayId provided in FetchRequest for CUSTOM Replay. Trying again with EARLIEST Replay.");
                 retryDelay = observerContext.getBackoffWaitTime();
                 retryReplayPreset = ReplayPreset.EARLIEST;
             } else if (errorCode.contains(Subscribe.ERROR_SERVICE_UNAVAILABLE)) {
-                logger.info("Service currently unavailable. Trying again with LATEST Replay.");
+                log.info("Service currently unavailable. Trying again with LATEST Replay.");
                 retryDelay = Subscribe.SERVICE_UNAVAILABLE_WAIT_BEFORE_RETRY_SECONDS * 1000L;
             } else {
                 retryDelay = observerContext.getBackoffWaitTime();
                 if (storedReplay != null) {
-                    logger.info("Retrying with Stored Replay.");
+                    log.info("Retrying with Stored Replay.");
                     retryReplayPreset = ReplayPreset.CUSTOM;
                     retryReplayId = getStoredReplay();
                 } else {
-                    logger.info("Retrying with LATEST Replay.");;
+                    log.info("Retrying with LATEST Replay.");;
                 }
 
             }
-            logger.info("Retrying in " + retryDelay + "ms.");
+            log.info("Retrying in {}ms.", retryDelay);
             observerContext.replay(retryReplayPreset, retryReplayId, retryDelay);
         }
     }
 
-    /**
-     * General getters and setters.
-     */
-    public AtomicInteger getReceivedEvents() {
-        return receivedEvents;
-    }
-
     public void updateReceivedEvents(int delta) {
         receivedEvents.addAndGet(delta);
-    }
-
-    public ByteString getStoredReplay() {
-        return storedReplay;
     }
 
     public void setStoredReplay(ByteString storedReplay) {
@@ -122,7 +117,7 @@ public class FetchResponseStreamObserver implements StreamObserver<FetchResponse
 
     @Override
     public void onCompleted() {
-        logger.info("Call completed by server. Closing Subscription.");
+        log.info("Call completed by server. Closing Subscription.");
         observerContext.deactivate();
     }
 }

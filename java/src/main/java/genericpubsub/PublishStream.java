@@ -9,6 +9,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.salesforce.eventbus.protobuf.ProducerEvent;
+import com.salesforce.eventbus.protobuf.PublishRequest;
+import com.salesforce.eventbus.protobuf.PublishResponse;
+import com.salesforce.eventbus.protobuf.PublishResult;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
@@ -17,7 +22,6 @@ import org.apache.avro.io.EncoderFactory;
 
 import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
-import com.salesforce.eventbus.protobuf.*;
 
 import io.grpc.Status;
 import io.grpc.stub.ClientCallStreamObserver;
@@ -34,8 +38,8 @@ import utility.ExampleConfigurations;
  *
  * @author sidd0610
  */
+@Slf4j
 public class PublishStream extends CommonContext {
-    private final int TIMEOUT_SECONDS = 30; // Max time we'll wait to finish streaming
 
     ClientCallStreamObserver<PublishRequest> requestObserver = null;
 
@@ -93,24 +97,26 @@ public class PublishStream extends CommonContext {
                                                int expectedResponseCount, List<PublishResponse> publishResponses, AtomicInteger failed, int expectedNumEventsPublished) throws Exception {
         String exceptionMsg;
         boolean failedPublish = false;
+        // Max time we'll wait to finish streaming
+        int TIMEOUT_SECONDS = 30;
         if (!finishLatch.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
             failedPublish = true;
             exceptionMsg = "[ERROR] publishStream timed out after: " + TIMEOUT_SECONDS + "sec";
-            logger.error(exceptionMsg);
+            log.error(exceptionMsg);
         }
 
         if (expectedResponseCount != publishResponses.size()) {
             failedPublish = true;
             exceptionMsg = "[ERROR] PublishStream received: " + publishResponses.size() + " PublishResponses instead of expected "
                     + expectedResponseCount;
-            logger.error(exceptionMsg);
+            log.error(exceptionMsg);
         }
 
         if (failed.get() != 0) {
             failedPublish = true;
             exceptionMsg = "[ERROR] Failed to publish all events. " + failed + " failed out of "
                     + expectedNumEventsPublished;
-            logger.error(exceptionMsg);
+            log.error(exceptionMsg);
         }
 
         if (failedPublish) {
@@ -174,7 +180,7 @@ public class PublishStream extends CommonContext {
      * @throws IOException
      */
     private PublishRequest generatePublishRequest(int count, Boolean singlePublishRequest) throws IOException {
-        if (singlePublishRequest == false) {
+        if (!singlePublishRequest) {
             // One event per batch
             ProducerEvent e = generateProducerEvent(count);
             return PublishRequest.newBuilder().setTopicName(busTopicName).addEvents(e).build();
@@ -205,15 +211,14 @@ public class PublishStream extends CommonContext {
             public void onNext(PublishResponse publishResponse) {
                 publishResponses.add(publishResponse);
 
-                logger.info("Publish Call rpcId: " + publishResponse.getRpcId());
+                log.info("Publish Call rpcId: {}", publishResponse.getRpcId());
 
                 for (PublishResult publishResult : publishResponse.getResultsList()) {
                     if (publishResult.hasError()) {
                         failed.incrementAndGet();
-                        logger.error("[ERROR] Publishing event with correlationKey: " + publishResult.getCorrelationKey() +
-                                " failed with error: " + publishResult.getError().getMsg());
+                        log.error("[ERROR] Publishing event with correlationKey: {} failed with error: {}", publishResult.getCorrelationKey(), publishResult.getError().getMsg());
                     } else {
-                        logger.info("Event published with correlationKey: " + publishResult.getCorrelationKey());
+                        log.info("Event published with correlationKey: {}", publishResult.getCorrelationKey());
                         lastPublishedReplayId = publishResult.getReplayId();
                     }
                 }
@@ -224,14 +229,14 @@ public class PublishStream extends CommonContext {
 
             @Override
             public void onError(Throwable t) {
-                logger.error("[ERROR] Unexpected error status: " + Status.fromThrowable(t));
+                log.error("[ERROR] Unexpected error status: {}", Status.fromThrowable(t));
                 printStatusRuntimeException("Error during PublishStream", (Exception) t);
                 finishLatchRef.get().countDown();
             }
 
             @Override
             public void onCompleted() {
-                logger.info("Successfully published events for topic " + busTopicName + " for tenant " + tenantGuid);
+                log.info("Successfully published events for topic {} for tenant {}", busTopicName, tenantGuid);
                 finishLatchRef.get().countDown();
             }
         };

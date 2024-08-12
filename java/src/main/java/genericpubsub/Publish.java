@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
@@ -24,9 +25,10 @@ import utility.ExampleConfigurations;
  *
  * @author sidd0610
  */
+@Slf4j
 public class Publish extends CommonContext {
 
-    private Schema schema;
+    private final Schema schema;
 
     public Publish(ExampleConfigurations exampleConfigurations) {
         super(exampleConfigurations);
@@ -99,18 +101,18 @@ public class Publish extends CommonContext {
         List<PublishResult> resultList = response.getResultsList();
         if (resultList.size() != 1) {
             String errorMsg = "[ERROR] Error during Publish, received: " + resultList.size() + " events instead of expected 1";
-            logger.error(errorMsg);
+            log.error(errorMsg);
             throw new RuntimeException(errorMsg);
         } else {
             PublishResult result = resultList.get(0);
             if (result.hasError()) {
-                logger.error("[ERROR] Publishing batch failed with rpcId: " + response.getRpcId());
-                logger.error("[ERROR] Error during Publish, event with correlationKey: {} failed with: {}",
+                log.error("[ERROR] Publishing batch failed with rpcId: {}", response.getRpcId());
+                log.error("[ERROR] Error during Publish, event with correlationKey: {} failed with: {}",
                         response.getResults(0).getCorrelationKey(), result.getError().getMsg());
             } else {
                 lastPublishedReplayId = result.getReplayId();
-                logger.info("Publish Call RPC ID: " + response.getRpcId());
-                logger.info("Successfully published an event with correlationKey: {} at {} for tenant {}.",
+                log.info("Publish Call RPC ID: {}", response.getRpcId());
+                log.info("Successfully published an event with correlationKey: {} at {} for tenant {}.",
                         response.getResults(0).getCorrelationKey(), busTopicName, tenantGuid);
             }
         }

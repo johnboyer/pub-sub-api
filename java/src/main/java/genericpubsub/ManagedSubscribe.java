@@ -4,15 +4,23 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.salesforce.eventbus.protobuf.CommitReplayRequest;
+import com.salesforce.eventbus.protobuf.CommitReplayResponse;
+import com.salesforce.eventbus.protobuf.ConsumerEvent;
+import com.salesforce.eventbus.protobuf.ManagedFetchRequest;
+import com.salesforce.eventbus.protobuf.ManagedFetchResponse;
+import com.salesforce.eventbus.protobuf.SchemaRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 
 import com.google.protobuf.ByteString;
-import com.salesforce.eventbus.protobuf.*;
 
 import io.grpc.stub.StreamObserver;
 import utility.CommonContext;
@@ -29,6 +37,7 @@ import utility.ExampleConfigurations;
  *
  * @author jalaya
  */
+@Slf4j
 public class ManagedSubscribe extends CommonContext implements StreamObserver<ManagedFetchResponse> {
     private static int BATCH_SIZE;
     private StreamObserver<ManagedFetchRequest> serverStream;
@@ -58,12 +67,12 @@ public class ManagedSubscribe extends CommonContext implements StreamObserver<Ma
 
         if (Objects.nonNull(managedSubscriptionId)) {
             builder.setSubscriptionId(managedSubscriptionId);
-            logger.info("Starting managed subscription with ID {}", managedSubscriptionId);
+            log.info("Starting managed subscription with ID {}", managedSubscriptionId);
         } else if (Objects.nonNull(developerName)) {
             builder.setDeveloperName(developerName);
-            logger.info("Starting managed subscription with developer name {}", developerName);
+            log.info("Starting managed subscription with developer name {}", developerName);
         } else {
-            logger.warn("No ID or developer name specified");
+            log.warn("No ID or developer name specified");
         }
 
         serverStream.onNext(builder.build());
@@ -71,7 +80,7 @@ public class ManagedSubscribe extends CommonContext implements StreamObserver<Ma
         // Thread being blocked here for demonstration of this specific example. Blocking the thread in production is not recommended.
         while(isActive.get()) {
             waitInMillis(5_000);
-            logger.info("Subscription Active. Received a total of " + receivedEvents.get() + " events.");
+            log.info("Subscription Active. Received a total of " + receivedEvents.get() + " events.");
         }
     }
 
@@ -81,7 +90,7 @@ public class ManagedSubscribe extends CommonContext implements StreamObserver<Ma
      * @param numOfRequestedEvents
      */
     private void fetchMore(int numOfRequestedEvents) {
-        logger.info("Fetching more events: {}", numOfRequestedEvents);
+        log.info("Fetching more events: {}", numOfRequestedEvents);
         ManagedFetchRequest fetchRequest = ManagedFetchRequest
                 .newBuilder()
                 .setNumRequested(numOfRequestedEvents)
@@ -96,17 +105,17 @@ public class ManagedSubscribe extends CommonContext implements StreamObserver<Ma
         if (response.getEventsCount() > 0) {
             for (ConsumerEvent event : response.getEventsList()) {
                 String schemaId = event.getEvent().getSchemaId();
-                logger.info("processEvent - EventID: {} SchemaId: {}", event.getEvent().getId(), schemaId);
+                log.info("processEvent - EventID: {} SchemaId: {}", event.getEvent().getId(), schemaId);
                 Schema writerSchema = getSchema(schemaId);
                 GenericRecord record = deserialize(writerSchema, event.getEvent().getPayload());
-                logger.info("Received event: {}", record.toString());
+                log.info("Received event: {}", record.toString());
                 if (processChangedFields) {
                     // This example expands the changedFields bitmap field in ChangeEventHeader.
                     // To expand the other bitmap fields, i.e., diffFields and nulledFields, replicate or modify this code.
                     processAndPrintBitmapFields(writerSchema, record, "changedFields");
                 }
             }
-            logger.info("Processed batch of {} event(s)", response.getEventsList().size());
+            log.info("Processed batch of {} event(s)", response.getEventsList().size());
         }
 
         // Commit the replay after processing batch of events or commit the latest replay on an empty batch
@@ -127,7 +136,7 @@ public class ManagedSubscribe extends CommonContext implements StreamObserver<Ma
                 .build();
         fetchRequestBuilder.setCommitReplayIdRequest(commitRequest);
 
-        logger.info("Sending CommitRequest with CommitReplayRequest ID: {}" , newKey);
+        log.info("Sending CommitRequest with CommitReplayRequest ID: {}" , newKey);
         serverStream.onNext(fetchRequestBuilder.build());
     }
 
@@ -138,14 +147,14 @@ public class ManagedSubscribe extends CommonContext implements StreamObserver<Ma
         CommitReplayResponse ce = fetchResponse.getCommitResponse();
         try {
             if (ce.hasError()) {
-                logger.info("Failed Commit CommitRequestID: {} with error: {} with process time: {}",
+                log.info("Failed Commit CommitRequestID: {} with error: {} with process time: {}",
                         ce.getCommitRequestId(), ce.getError().getMsg(), ce.getProcessTime());
                 return;
             }
-            logger.info("Successfully committed replay with CommitRequestId: {} with process time: {}",
+            log.info("Successfully committed replay with CommitRequestId: {} with process time: {}",
                     ce.getCommitRequestId(), ce.getProcessTime());
         } catch (Exception e) {
-            logger.warn(e.getMessage());
+            log.warn(e.getMessage());
             abort(new RuntimeException("Client received error. Closing Call." + e));
         }
     }
@@ -153,8 +162,8 @@ public class ManagedSubscribe extends CommonContext implements StreamObserver<Ma
     @Override
     public void onNext(ManagedFetchResponse fetchResponse) {
         int batchSize = fetchResponse.getEventsList().size();
-        logger.info("ManagedFetchResponse batch of {} events pending requested: {}", batchSize, fetchResponse.getPendingNumRequested());
-        logger.info("RPC ID: {}", fetchResponse.getRpcId());
+        log.info("ManagedFetchResponse batch of {} events pending requested: {}", batchSize, fetchResponse.getPendingNumRequested());
+        log.info("RPC ID: {}", fetchResponse.getRpcId());
 
         if (fetchResponse.hasCommitResponse()) {
             checkCommitResponse(fetchResponse);
@@ -162,7 +171,7 @@ public class ManagedSubscribe extends CommonContext implements StreamObserver<Ma
         try {
             processEvent(fetchResponse);
         } catch (IOException e) {
-            logger.warn(e.getMessage());
+            log.warn(e.getMessage());
             abort(new RuntimeException("Client received error. Closing Call." + e));
         }
 
@@ -192,7 +201,7 @@ public class ManagedSubscribe extends CommonContext implements StreamObserver<Ma
 
     @Override
     public void onCompleted() {
-        logger.info("Call completed by Server");
+        log.info("Call completed by Server");
         synchronized (this) {
             isActive.set(false);
             this.notifyAll();
@@ -225,7 +234,7 @@ public class ManagedSubscribe extends CommonContext implements StreamObserver<Ma
                 }
                 serverOnCompletedLatch.await(6, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
-                logger.warn("interrupted while waiting to close ", e);
+                log.warn("interrupted while waiting to close ", e);
             }
         }
         super.close();
@@ -253,7 +262,7 @@ public class ManagedSubscribe extends CommonContext implements StreamObserver<Ma
         }
     }
 
-    public static void main(String args[]) throws IOException  {
+    public static void main(String[] args) throws IOException  {
         ExampleConfigurations exampleConfigurations = new ExampleConfigurations("arguments.yaml");
 
         // Using the try-with-resource statement. The CommonContext class implements AutoCloseable in
