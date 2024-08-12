@@ -25,9 +25,3 @@ java/.java-version
 java/src/main/resources/arguments.personal.yaml
 
 java/src/main/avro/OpportunityChangeEvent.avsc
-
-java/src/main/java/com/salesforce/eventbus/ChangeEventHeader.java
-
-java/src/main/java/com/salesforce/eventbus/ChangeType.java
-
-java/src/main/java/com/salesforce/eventbus/OpportunityChangeEvent.java
