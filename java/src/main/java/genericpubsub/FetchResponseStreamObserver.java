@@ -7,25 +7,22 @@ import com.salesforce.eventbus.protobuf.ReplayPreset;
 import io.grpc.Metadata;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
-import lombok.Getter;
-import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import utility.CommonContext;
 
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class FetchResponseStreamObserver implements StreamObserver<FetchResponse> {
     protected static final Logger logger = LoggerFactory.getLogger(FetchResponseStreamObserver.class);
-    private final ObserverContext subscribe;
+    private final ObserverContext observerContext;
 
     private final AtomicInteger receivedEvents = new AtomicInteger(0);
     // Replay should be stored in replay store as bytes since replays are opaque.
     private volatile ByteString storedReplay;
 
-    public FetchResponseStreamObserver(ObserverContext subscribe) {
-        this.subscribe = subscribe;
+    public FetchResponseStreamObserver(ObserverContext observerContext) {
+        this.observerContext = observerContext;
     }
 
     @Override
@@ -35,7 +32,7 @@ public class FetchResponseStreamObserver implements StreamObserver<FetchResponse
         for(ConsumerEvent ce : fetchResponse.getEventsList()) {
             try {
                 storedReplay  = ce.getReplayId();
-                subscribe.processEvent(ce);
+                observerContext.processEvent(ce);
             } catch (Exception e) {
                 logger.info(e.toString());
             }
@@ -56,7 +53,7 @@ public class FetchResponseStreamObserver implements StreamObserver<FetchResponse
         // a long time. There is a 70s timeout period during which, if pendingNumRequested is 0 and no events are
         // further requested then the stream will be closed.
         if (fetchResponse.getPendingNumRequested() == 0) {
-            subscribe.fetchMore();
+            observerContext.fetchMore();
         }
     }
 
@@ -74,7 +71,7 @@ public class FetchResponseStreamObserver implements StreamObserver<FetchResponse
                     trailers.get(Metadata.Key.of("error-code", Metadata.ASCII_STRING_MARSHALLER)) : null;
 
             // Closing the old stream for sanity
-            subscribe.closeFetchRequestStream();
+            observerContext.closeFetchRequestStream();
 
             ReplayPreset retryReplayPreset = ReplayPreset.LATEST;
             ByteString retryReplayId = null;
@@ -83,13 +80,13 @@ public class FetchResponseStreamObserver implements StreamObserver<FetchResponse
             // Retry strategies that can be implemented based on the error type.
             if (errorCode.contains(Subscribe.ERROR_REPLAY_ID_VALIDATION_FAILED) || errorCode.contains(Subscribe.ERROR_REPLAY_ID_INVALID)) {
                 logger.info("Invalid or no replayId provided in FetchRequest for CUSTOM Replay. Trying again with EARLIEST Replay.");
-                retryDelay = subscribe.getBackoffWaitTime();
+                retryDelay = observerContext.getBackoffWaitTime();
                 retryReplayPreset = ReplayPreset.EARLIEST;
             } else if (errorCode.contains(Subscribe.ERROR_SERVICE_UNAVAILABLE)) {
                 logger.info("Service currently unavailable. Trying again with LATEST Replay.");
                 retryDelay = Subscribe.SERVICE_UNAVAILABLE_WAIT_BEFORE_RETRY_SECONDS * 1000L;
             } else {
-                retryDelay = subscribe.getBackoffWaitTime();
+                retryDelay = observerContext.getBackoffWaitTime();
                 if (storedReplay != null) {
                     logger.info("Retrying with Stored Replay.");
                     retryReplayPreset = ReplayPreset.CUSTOM;
@@ -100,7 +97,7 @@ public class FetchResponseStreamObserver implements StreamObserver<FetchResponse
 
             }
             logger.info("Retrying in " + retryDelay + "ms.");
-            subscribe.replay(retryReplayPreset, retryReplayId, retryDelay);
+            observerContext.replay(retryReplayPreset, retryReplayId, retryDelay);
         }
     }
 
@@ -126,6 +123,6 @@ public class FetchResponseStreamObserver implements StreamObserver<FetchResponse
     @Override
     public void onCompleted() {
         logger.info("Call completed by server. Closing Subscription.");
-        subscribe.deactivate();
+        observerContext.deactivate();
     }
 }
