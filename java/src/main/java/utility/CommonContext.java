@@ -262,8 +262,9 @@ public class CommonContext implements AutoCloseable {
      * @throws IOException
      */
     public static GenericRecord deserialize(Schema schema, ByteString payload) throws IOException {
+        byte[] byteArray = payload.toByteArray();
         DatumReader<GenericRecord> reader = new GenericDatumReader<GenericRecord>(schema);
-        ByteArrayInputStream in = new ByteArrayInputStream(payload.toByteArray());
+        ByteArrayInputStream in = new ByteArrayInputStream(byteArray);
         BinaryDecoder decoder = DecoderFactory.get().directBinaryDecoder(in, null);
         return reader.read(null, decoder);
     }

@@ -23,3 +23,5 @@ go/vendor/
 java/.java-version
 
 java/src/main/resources/arguments.personal.yaml
+
+java/src/main/avro/OpportunityChangeEvent.avsc
