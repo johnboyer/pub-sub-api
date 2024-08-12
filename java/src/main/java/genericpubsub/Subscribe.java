@@ -17,6 +17,8 @@ import com.google.protobuf.ByteString;
 
 import io.grpc.stub.StreamObserver;
 import utility.CommonContext;
+import utility.EventParser;
+import utility.ChangeEventUtils;
 import utility.ExampleConfigurations;
 
 /**
@@ -115,8 +117,7 @@ public class Subscribe extends CommonContext implements ObserverContext {
      */
     @Override
     public long getBackoffWaitTime() {
-        long waitTime = (long) (Math.pow(2, MAX_RETRIES - retriesLeft.get()) * 1000);
-        return waitTime;
+        return (long) (Math.pow(2, MAX_RETRIES - retriesLeft.get()) * 1000);
     }
 
     /**
@@ -158,12 +159,27 @@ public class Subscribe extends CommonContext implements ObserverContext {
     @Override
     public void processEvent(ConsumerEvent ce) throws IOException {
         Schema writerSchema = getSchema(ce.getEvent().getSchemaId());
-        GenericRecord record = deserialize(writerSchema, ce.getEvent().getPayload());
-        logger.info("Received event with payload: " + record.toString() + " with schema name: " + writerSchema.getName());
+        GenericRecord changeEventMessage = deserialize(writerSchema, ce.getEvent().getPayload());
+
+        //Check for <SObject>ChangeEvent
+        if (ChangeEventUtils.isChangeEvent(changeEventMessage)) {
+            //ChangeEventHeader documentation:
+            //https://developer.salesforce.com/docs/atlas.en-us.change_data_capture.meta/change_data_capture/cdc_message_structure.htm
+            final var header = ChangeEventUtils.getChangeEventHeader(changeEventMessage);
+            final var changeType = header.get("changeType").toString();
+            logger.info("Received {} event.", changeType);
+
+            if (ChangeEventUtils.isOpportunityChangeEvent(changeEventMessage)) {
+                var opportunityChangeEventProcessor = new OpportunityChangeEventProcessor(changeEventMessage);
+                opportunityChangeEventProcessor.process();
+            }
+        }
+
+        logger.info("Received event with payload: {} with schema name: {}", changeEventMessage, writerSchema.getName());
         if (processChangedFields) {
             // This example expands the changedFields bitmap field in ChangeEventHeader.
             // To expand the other bitmap fields, i.e., diffFields and nulledFields, replicate or modify this code.
-            processAndPrintBitmapFields(writerSchema, record, "changedFields");
+            processAndPrintBitmapFields(writerSchema, changeEventMessage, "changedFields");
         }
     }
 

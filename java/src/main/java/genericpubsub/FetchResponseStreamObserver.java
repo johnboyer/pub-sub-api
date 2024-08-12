@@ -7,6 +7,8 @@ import com.salesforce.eventbus.protobuf.ReplayPreset;
 import io.grpc.Metadata;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
+import lombok.Getter;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import utility.CommonContext;
@@ -14,7 +16,7 @@ import utility.CommonContext;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-class FetchResponseStreamObserver implements StreamObserver<FetchResponse> {
+public class FetchResponseStreamObserver implements StreamObserver<FetchResponse> {
     protected static final Logger logger = LoggerFactory.getLogger(FetchResponseStreamObserver.class);
     private final ObserverContext subscribe;
 

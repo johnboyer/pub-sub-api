@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import com.salesforce.eventbus.OpportunityChangeEvent;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
@@ -15,6 +16,7 @@ import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.specific.SpecificDatumReader;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.HttpProxy;
 import org.slf4j.Logger;
@@ -262,8 +264,9 @@ public class CommonContext implements AutoCloseable {
      * @throws IOException
      */
     public static GenericRecord deserialize(Schema schema, ByteString payload) throws IOException {
+        byte[] byteArray = payload.toByteArray();
         DatumReader<GenericRecord> reader = new GenericDatumReader<GenericRecord>(schema);
-        ByteArrayInputStream in = new ByteArrayInputStream(payload.toByteArray());
+        ByteArrayInputStream in = new ByteArrayInputStream(byteArray);
         BinaryDecoder decoder = DecoderFactory.get().directBinaryDecoder(in, null);
         return reader.read(null, decoder);
     }
