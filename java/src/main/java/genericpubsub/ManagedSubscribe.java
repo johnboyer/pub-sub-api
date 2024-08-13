@@ -16,6 +16,7 @@ import com.salesforce.eventbus.protobuf.ConsumerEvent;
 import com.salesforce.eventbus.protobuf.ManagedFetchRequest;
 import com.salesforce.eventbus.protobuf.ManagedFetchResponse;
 import com.salesforce.eventbus.protobuf.SchemaRequest;
+import config.PubSubApiConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
@@ -24,7 +25,6 @@ import com.google.protobuf.ByteString;
 
 import io.grpc.stub.StreamObserver;
 import utility.CommonContext;
-import utility.ExampleConfigurations;
 
 /**
  * A single-topic subscriber that consumes events using Event Bus API ManagedSubscribe RPC. The example demonstrates how to:
@@ -41,21 +41,22 @@ import utility.ExampleConfigurations;
 public class ManagedSubscribe extends CommonContext implements StreamObserver<ManagedFetchResponse> {
     private static int BATCH_SIZE;
     private StreamObserver<ManagedFetchRequest> serverStream;
-    private Map<String, Schema> schemaCache = new ConcurrentHashMap<>();
+    private final Map<String, Schema> schemaCache = new ConcurrentHashMap<>();
     private final CountDownLatch serverOnCompletedLatch = new CountDownLatch(1);
     public static AtomicBoolean isActive = new AtomicBoolean(false);
-    private AtomicInteger receivedEvents = new AtomicInteger(0);
-    private String developerName;
-    private String managedSubscriptionId;
+    private final AtomicInteger receivedEvents = new AtomicInteger(0);
+    private final String developerName;
+    private final String managedSubscriptionId;
     private final boolean processChangedFields;
 
-    public ManagedSubscribe(ExampleConfigurations exampleConfigurations) {
-        super(exampleConfigurations);
+    public ManagedSubscribe(PubSubApiConfig pubSubApiConfig) {
+        super(pubSubApiConfig);
         isActive.set(true);
-        this.managedSubscriptionId = exampleConfigurations.getManagedSubscriptionId();
-        this.developerName = exampleConfigurations.getDeveloperName();
-        this.BATCH_SIZE = exampleConfigurations.getNumberOfEventsToSubscribeInEachFetchRequest();
-        this.processChangedFields = exampleConfigurations.getProcessChangedFields();
+        var pubsub = pubSubApiConfig.getPubsub();
+        this.managedSubscriptionId = pubsub.getManagedSubscriptionId();
+        this.developerName = pubsub.getManagedSubscriptionDeveloperName();
+        BATCH_SIZE = pubsub.getSubscriptionRequestSize();
+        this.processChangedFields = pubsub.getLogChangedEventHeaders();
     }
 
     /**
@@ -263,11 +264,11 @@ public class ManagedSubscribe extends CommonContext implements StreamObserver<Ma
     }
 
     public static void main(String[] args) throws IOException  {
-        ExampleConfigurations exampleConfigurations = new ExampleConfigurations("arguments.yaml");
+        PubSubApiConfig pubSubApiConfig = PubSubApiConfig.getPubSubApiConfig();
 
         // Using the try-with-resource statement. The CommonContext class implements AutoCloseable in
         // order to close the resources used.
-        try (ManagedSubscribe subscribe = new ManagedSubscribe(exampleConfigurations)) {
+        try (ManagedSubscribe subscribe = new ManagedSubscribe(pubSubApiConfig)) {
             subscribe.startManagedSubscription();
         } catch (Exception e) {
             printStatusRuntimeException("Error during ManagedSubscribe", e);

@@ -25,3 +25,7 @@ java/.java-version
 java/src/main/resources/arguments.personal.yaml
 
 java/src/main/avro/OpportunityChangeEvent.avsc
+
+java/src/main/resources/arguments.old.yaml
+
+java/src/main/resources/salesforce.yml

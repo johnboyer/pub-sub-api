@@ -2,6 +2,7 @@ package genericpubsub;
 
 import java.io.IOException;
 
+import config.PubSubApiConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 
@@ -11,7 +12,6 @@ import com.salesforce.eventbus.protobuf.TopicInfo;
 import com.salesforce.eventbus.protobuf.TopicRequest;
 
 import utility.CommonContext;
-import utility.ExampleConfigurations;
 
 /**
  * An example that retrieves the Schema of a single-topic.
@@ -24,7 +24,7 @@ import utility.ExampleConfigurations;
 @Slf4j
 public class GetSchema extends CommonContext {
 
-    public GetSchema(final ExampleConfigurations options) {
+    public GetSchema(final PubSubApiConfig options) {
         super(options);
     }
 
@@ -48,12 +48,12 @@ public class GetSchema extends CommonContext {
     }
 
     public static void main(String[] args) throws IOException {
-        ExampleConfigurations exampleConfigurations = new ExampleConfigurations("arguments.yaml");
+        PubSubApiConfig pubSubApiConfig = PubSubApiConfig.getPubSubApiConfig();
 
         // Using the try-with-resource statement. The CommonContext class implements AutoCloseable in
         // order to close the resources used.
-        try (GetSchema example = new GetSchema(exampleConfigurations)) {
-            example.getSchema(exampleConfigurations.getTopic());
+        try (GetSchema getSchema = new GetSchema(pubSubApiConfig)) {
+            getSchema.getSchema(pubSubApiConfig.getPubsub().getTopic());
         } catch (Exception e) {
             printStatusRuntimeException("Getting schema", e);
         }

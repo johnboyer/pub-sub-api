@@ -5,9 +5,9 @@ import java.io.IOException;
 import com.salesforce.eventbus.protobuf.TopicInfo;
 import com.salesforce.eventbus.protobuf.TopicRequest;
 
+import config.PubSubApiConfig;
 import lombok.extern.slf4j.Slf4j;
 import utility.CommonContext;
-import utility.ExampleConfigurations;
 
 /**
  * An example that retrieves the topic info of a single-topic.
@@ -20,7 +20,7 @@ import utility.ExampleConfigurations;
 @Slf4j
 public class GetTopic extends CommonContext {
 
-    public GetTopic(final ExampleConfigurations options) {
+    public GetTopic(final PubSubApiConfig options) {
         super(options);
     }
 
@@ -33,12 +33,12 @@ public class GetTopic extends CommonContext {
     }
 
     public static void main(String[] args) throws IOException {
-        ExampleConfigurations exampleConfigurations = new ExampleConfigurations("arguments.yaml");
+        PubSubApiConfig pubSubApiConfig = PubSubApiConfig.getPubSubApiConfig();
 
         // Using the try-with-resource statement. The CommonContext class implements AutoCloseable in
         // order to close the resources used.
-        try (GetTopic example = new GetTopic(exampleConfigurations)) {
-            example.getTopic(exampleConfigurations.getTopic());
+        try (GetTopic getTopic = new GetTopic(pubSubApiConfig)) {
+            getTopic.getTopic(pubSubApiConfig.getPubsub().getTopic());
         } catch (Exception e) {
             printStatusRuntimeException("Error while Getting Topic", e);
         }

@@ -14,6 +14,7 @@ import com.salesforce.eventbus.protobuf.SchemaInfo;
 import com.salesforce.eventbus.protobuf.SchemaRequest;
 import com.salesforce.eventbus.protobuf.TopicInfo;
 import com.salesforce.eventbus.protobuf.TopicRequest;
+import config.PubSubApiConfig;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
@@ -66,9 +67,9 @@ public class CommonContext implements AutoCloseable {
     @Getter
     protected String sessionToken;
 
-    public CommonContext(final ExampleConfigurations options) {
-        String grpcHost = options.getPubsubHost();
-        int grpcPort = options.getPubsubPort();
+    public CommonContext(final PubSubApiConfig options) {
+        String grpcHost = options.getPubsub().getHost();
+        int grpcPort = options.getPubsub().getPort();
         log.info("Using grpcHost {} and grpcPort {}", grpcHost, grpcPort);
 
         if (options.usePlaintextChannel()) {
@@ -117,19 +118,21 @@ public class CommonContext implements AutoCloseable {
      * @param options Command line arguments passed.
      * @return CallCredentials
      */
-    public CallCredentials setupCallCredentials(ExampleConfigurations options) {
-        if (options.getAccessToken() != null) {
+    public CallCredentials setupCallCredentials(PubSubApiConfig options) {
+        final var accessToken = options.getAuth().getAccessToken();
+        final var loginUrl = options.getPubsub().getLoginUrl();
+        final var username = options.getAuth().getUsername();
+        final var password = options.getAuth().getPassword();
+        if (accessToken != null) {
             try {
-                return sessionTokenService.loginWithAccessToken(options.getLoginUrl(),
-                        options.getAccessToken(), options.getTenantId());
+                return sessionTokenService.loginWithAccessToken(loginUrl, accessToken, options.getAuth().getTenantId());
             } catch (Exception e) {
                 close();
                 throw new IllegalArgumentException("cannot log in with access token", e);
             }
-        } else if (options.getUsername() != null && options.getPassword() != null) {
+        } else if (username != null && password != null) {
             try {
-                return sessionTokenService.login(options.getLoginUrl(),
-                        options.getUsername(), options.getPassword(), options.useProvidedLoginUrl());
+                return sessionTokenService.login(loginUrl, username, password, options.useProvidedLoginUrl());
             } catch (Exception e) {
                 close();
                 throw new IllegalArgumentException("cannot log in with username/password", e);
@@ -205,6 +208,7 @@ public class CommonContext implements AutoCloseable {
     public GenericRecord createEventMessage(Schema schema) {
         // Update CreatedById with the appropriate User Id from your org.
         return new GenericRecordBuilder(schema).set("CreatedDate", System.currentTimeMillis())
+                //TODO: Remove hardcoding of CreatedById
                 .set("CreatedById", "4nyvqrd5bp@privaterelay.appleid.com").set("Order_Number__c", "1")
                 .set("City__c", "Los Angeles").set("Amount__c", 35.0).build();
     }
@@ -222,6 +226,7 @@ public class CommonContext implements AutoCloseable {
     public GenericRecord createEventMessage(Schema schema, final int counter) {
         // Update CreatedById with the appropriate User Id from your org.
         return new GenericRecordBuilder(schema).set("CreatedDate", System.currentTimeMillis())
+                //TODO: Remove hardcoding of CreatedById
                 .set("CreatedById", "4nyvqrd5bp@privaterelay.appleid.com").set("Order_Number__c", String.valueOf(counter+1))
                 .set("City__c", "Los Angeles").set("Amount__c", 35.0).build();
     }
@@ -236,6 +241,7 @@ public class CommonContext implements AutoCloseable {
         List<GenericRecord> events = new ArrayList<>();
         for (int i=0; i<numEvents; i++) {
             events.add(new GenericRecordBuilder(schema).set("CreatedDate", System.currentTimeMillis())
+                    //TODO: Remove hardcoding of CreatedById
                     .set("CreatedById", "4nyvqrd5bp@privaterelay.appleid.com").set("Order_Number__c", orderNumbers[i % 5])
                     .set("City__c", cities[i % 5]).set("Amount__c", amounts[i % 5]).build());
         }
@@ -319,12 +325,13 @@ public class CommonContext implements AutoCloseable {
      * @param topic
      * @return
      */
-    public static ExampleConfigurations setupSubscriberParameters(ExampleConfigurations requiredParams, String topic, int numberOfEvents) {
-        ExampleConfigurations subParams = new ExampleConfigurations();
+    public static PubSubApiConfig setupSubscriberParameters(PubSubApiConfig requiredParams, String topic, int numberOfEvents) {
+        PubSubApiConfig subParams = new PubSubApiConfig();
         setCommonParameters(subParams, requiredParams);
-        subParams.setTopic(topic);
-        subParams.setReplayPreset(ReplayPreset.LATEST);
-        subParams.setNumberOfEventsToSubscribeInEachFetchRequest(numberOfEvents);
+        var subPub = subParams.getPubsub();
+        subPub.setTopic(topic);
+        subPub.setReplayPreset(ReplayPreset.LATEST);
+        subPub.setSubscriptionRequestSize(numberOfEvents);
         return subParams;
     }
 
@@ -335,31 +342,37 @@ public class CommonContext implements AutoCloseable {
      * @param topic
      * @return
      */
-    public static ExampleConfigurations setupPublisherParameters(ExampleConfigurations requiredParams, String topic) {
-        ExampleConfigurations pubParams = new ExampleConfigurations();
+    public static PubSubApiConfig setupPublisherParameters(PubSubApiConfig requiredParams, String topic) {
+        PubSubApiConfig pubParams = new PubSubApiConfig();
         setCommonParameters(pubParams, requiredParams);
-        pubParams.setTopic(topic);
+        pubParams.getPubsub().setTopic(topic);
         return pubParams;
     }
 
     /**
      * Helper function to setup common configurations for publish and subscribe operations.
      *
-     * @param ep
-     * @param requiredParams
+     * @param target
+     * @param source
      */
-    private static void setCommonParameters(ExampleConfigurations ep, ExampleConfigurations requiredParams) {
-        ep.setLoginUrl(requiredParams.getLoginUrl());
-        ep.setPubsubHost(requiredParams.getPubsubHost());
-        ep.setPubsubPort(requiredParams.getPubsubPort());
-        if (requiredParams.getUsername() != null && requiredParams.getPassword() != null) {
-            ep.setUsername(requiredParams.getUsername());
-            ep.setPassword(requiredParams.getPassword());
+    private static void setCommonParameters(PubSubApiConfig target, PubSubApiConfig source) {
+        final var targetPubsub = target.getPubsub();
+        final var sourcePubsub = source.getPubsub();
+        targetPubsub.setLoginUrl(sourcePubsub.getLoginUrl());
+        targetPubsub.setHost(sourcePubsub.getHost());
+        targetPubsub.setPort(sourcePubsub.getPort());
+
+        final var targetAuth = target.getAuth();
+        final var sourceAuth = source.getAuth();
+        if (sourceAuth.getUsername() != null && sourceAuth.getPassword() != null) {
+            targetAuth.setUsername(sourceAuth.getUsername());
+            targetAuth.setPassword(sourceAuth.getPassword());
         } else {
-            ep.setAccessToken(requiredParams.getAccessToken());
-            ep.setTenantId(requiredParams.getTenantId());
+            targetAuth.setAccessToken(sourceAuth.getAccessToken());
+            targetAuth.setTenantId(sourceAuth.getTenantId());
         }
-        ep.setPlaintextChannel(requiredParams.usePlaintextChannel());
+
+        targetPubsub.setPlaintextChannel(sourcePubsub.getPlaintextChannel());
     }
 
     /**

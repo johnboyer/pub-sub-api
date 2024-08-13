@@ -16,9 +16,11 @@ import com.salesforce.eventbus.protobuf.ReplayPreset;
  * The ExampleConfigurations class is used for setting up the configurations for running the examples.
  * The configurations can be read from a YAML file or created directly via an object. It also sets
  * default values when an optional configuration is not specified.
+ * @deprecated Use {@link config.PubSubApiConfig} instead
  */
 @Getter
 @Setter
+@Deprecated
 public class ExampleConfigurations {
     private String username;
     private String password;
@@ -41,7 +43,8 @@ public class ExampleConfigurations {
 
     public ExampleConfigurations() {
         this(null, null, null, null, null,
-                null, null, null, 5, false, 5, false,
+                null, null, null, 5, false,
+                5, false,
                 false, false, ReplayPreset.LATEST, null, null, null);
     }
     public ExampleConfigurations(String filename) throws IOException {

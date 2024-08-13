@@ -13,6 +13,7 @@ import com.salesforce.eventbus.protobuf.ConsumerEvent;
 import com.salesforce.eventbus.protobuf.FetchRequest;
 import com.salesforce.eventbus.protobuf.ReplayPreset;
 import com.salesforce.eventbus.protobuf.SchemaRequest;
+import config.PubSubApiConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
@@ -22,7 +23,6 @@ import com.google.protobuf.ByteString;
 import io.grpc.stub.StreamObserver;
 import utility.CommonContext;
 import utility.ChangeEventUtils;
-import utility.ExampleConfigurations;
 
 /**
  * A single-topic subscriber that consumes events using Event Bus API Subscribe RPC. The example demonstrates how to:
@@ -44,11 +44,12 @@ public class Subscribe extends CommonContext implements ObserverContext {
     public static String ERROR_REPLAY_ID_INVALID = "fetch.replayid.corrupted";
     public static String ERROR_SERVICE_UNAVAILABLE = "service.unavailable";
     public static int SERVICE_UNAVAILABLE_WAIT_BEFORE_RETRY_SECONDS = 5;
-    public static ExampleConfigurations exampleConfigurations;
     public static AtomicBoolean isActive = new AtomicBoolean(false);
     public static AtomicInteger retriesLeft = new AtomicInteger(MAX_RETRIES);
+
+    private PubSubApiConfig pubSubApiConfig;
     private StreamObserver<FetchRequest> serverStream;
-    private Map<String, Schema> schemaCache = new ConcurrentHashMap<>();
+    private final Map<String, Schema> schemaCache = new ConcurrentHashMap<>();
     private final FetchResponseStreamObserver responseStreamObserver;
     private final ReplayPreset replayPreset;
     private final ByteString customReplayId;
@@ -56,43 +57,44 @@ public class Subscribe extends CommonContext implements ObserverContext {
 
     private final boolean processChangedFields;
 
-    public Subscribe(ExampleConfigurations exampleConfigurations) {
-        super(exampleConfigurations);
+    public Subscribe(PubSubApiConfig pubSubApiConfig) {
+        super(pubSubApiConfig);
         isActive.set(true);
-        Subscribe.exampleConfigurations = exampleConfigurations;
-        BATCH_SIZE = exampleConfigurations.getNumberOfEventsToSubscribeInEachFetchRequest();
+        this.pubSubApiConfig = pubSubApiConfig;
+        var pubsub = pubSubApiConfig.getPubsub();
+        BATCH_SIZE = pubsub.getSubscriptionRequestSize();
         this.responseStreamObserver = new FetchResponseStreamObserver(this);
-        this.setupTopicDetails(exampleConfigurations.getTopic(), false, false);
-        this.replayPreset = exampleConfigurations.getReplayPreset();
-        this.customReplayId = exampleConfigurations.getReplayId();
+        this.setupTopicDetails(pubsub.getTopic(), false, false);
+        this.replayPreset = pubsub.getReplayPreset();
+        this.customReplayId = pubsub.getReplayId();
         this.retryScheduler = Executors.newScheduledThreadPool(1);
-        this.processChangedFields = exampleConfigurations.getProcessChangedFields();
+        this.processChangedFields = pubsub.getLogChangedEventHeaders();
     }
 
-    public Subscribe(ExampleConfigurations exampleConfigurations, FetchResponseStreamObserver responseStreamObserver) {
-        super(exampleConfigurations);
+    public Subscribe(PubSubApiConfig pubSubApiConfig, FetchResponseStreamObserver responseStreamObserver) {
+        super(pubSubApiConfig);
         isActive.set(true);
-        Subscribe.exampleConfigurations = exampleConfigurations;
-        BATCH_SIZE = exampleConfigurations.getNumberOfEventsToSubscribeInEachFetchRequest();
+        this.pubSubApiConfig = pubSubApiConfig;
+        var pubsub = pubSubApiConfig.getPubsub();
+        BATCH_SIZE = pubsub.getSubscriptionRequestSize();
         this.responseStreamObserver = responseStreamObserver;
-        this.setupTopicDetails(exampleConfigurations.getTopic(), false, false);
-        this.replayPreset = exampleConfigurations.getReplayPreset();
-        this.customReplayId = exampleConfigurations.getReplayId();
+        this.setupTopicDetails(pubsub.getTopic(), false, false);
+        this.replayPreset = pubsub.getReplayPreset();
+        this.customReplayId = pubsub.getReplayId();
         this.retryScheduler = Executors.newScheduledThreadPool(1);
-        this.processChangedFields = exampleConfigurations.getProcessChangedFields();
+        this.processChangedFields = pubsub.getLogChangedEventHeaders();
     }
 
     /**
      * Function to start the subscription.
      */
     public void startSubscription() {
-        log.info("Subscription started for topic: " + busTopicName + ".");
+        log.info("Subscription started for topic: {}.", busTopicName);
         fetch(BATCH_SIZE, busTopicName, replayPreset, customReplayId);
         // Thread being blocked here for demonstration of this specific example. Blocking the thread in production is not recommended.
         while(isActive.get()) {
             waitInMillis(5_000);
-            log.info("Subscription Active. Received a total of " +
-                    responseStreamObserver.getReceivedEvents().get() + " events.");
+            log.info("Subscription Active. Received a total of {} events.", responseStreamObserver.getReceivedEvents().get());
         }
     }
 
@@ -252,12 +254,13 @@ public class Subscribe extends CommonContext implements ObserverContext {
         super.close();
     }
 
-    public static void main(String args[]) throws IOException  {
-        ExampleConfigurations exampleConfigurations = new ExampleConfigurations("arguments.yaml");
+    public static void main(String[] args) throws IOException  {
+
+        PubSubApiConfig pubSubApiConfig = PubSubApiConfig.getPubSubApiConfig();
 
         // Using the try-with-resource statement. The CommonContext class implements AutoCloseable in
         // order to close the resources used.
-        try (Subscribe subscribe = new Subscribe(exampleConfigurations)) {
+        try (Subscribe subscribe = new Subscribe(pubSubApiConfig)) {
             subscribe.startSubscription();
         } catch (Exception e) {
             printStatusRuntimeException("Error during Subscribe", e);

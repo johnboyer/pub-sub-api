@@ -4,6 +4,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 
+import com.salesforce.eventbus.protobuf.ProducerEvent;
+import com.salesforce.eventbus.protobuf.PublishRequest;
+import com.salesforce.eventbus.protobuf.PublishResponse;
+import com.salesforce.eventbus.protobuf.PublishResult;
+import com.salesforce.eventbus.protobuf.SchemaInfo;
+import config.PubSubApiConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -12,9 +18,7 @@ import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.EncoderFactory;
 
 import com.google.protobuf.ByteString;
-import com.salesforce.eventbus.protobuf.*;
 import utility.CommonContext;
-import utility.ExampleConfigurations;
 
 /**
  * A single-topic publisher that creates an Order Event event and publishes it. This example uses
@@ -30,9 +34,9 @@ public class Publish extends CommonContext {
 
     private final Schema schema;
 
-    public Publish(ExampleConfigurations exampleConfigurations) {
-        super(exampleConfigurations);
-        setupTopicDetails(exampleConfigurations.getTopic(), true, true);
+    public Publish(PubSubApiConfig pubSubApiConfig) {
+        super(pubSubApiConfig);
+        setupTopicDetails(pubSubApiConfig.getPubsub().getTopic(), true, true);
         schema = new Schema.Parser().parse(schemaInfo.getSchemaJson());
     }
 
@@ -120,23 +124,16 @@ public class Publish extends CommonContext {
         return lastPublishedReplayId;
     }
 
-    /**
-     * General getters.
-     */
-    public Schema getSchema() {
-        return schema;
-    }
-
     public SchemaInfo getSchemaInfo() {
         return schemaInfo;
     }
 
     public static void main(String[] args) throws IOException {
-        ExampleConfigurations exampleConfigurations = new ExampleConfigurations("arguments.yaml");
+        PubSubApiConfig pubSubApiConfig = PubSubApiConfig.getPubSubApiConfig();
 
         // Using the try-with-resource statement. The CommonContext class implements AutoCloseable in
         // order to close the resources used.
-        try (Publish example = new Publish(exampleConfigurations)) {
+        try (Publish example = new Publish(pubSubApiConfig)) {
             example.publish();
         } catch (Exception e) {
             CommonContext.printStatusRuntimeException("Publishing events", e);

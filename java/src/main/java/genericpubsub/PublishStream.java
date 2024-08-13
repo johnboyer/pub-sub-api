@@ -13,6 +13,7 @@ import com.salesforce.eventbus.protobuf.ProducerEvent;
 import com.salesforce.eventbus.protobuf.PublishRequest;
 import com.salesforce.eventbus.protobuf.PublishResponse;
 import com.salesforce.eventbus.protobuf.PublishResult;
+import config.PubSubApiConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -27,7 +28,6 @@ import io.grpc.Status;
 import io.grpc.stub.ClientCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import utility.CommonContext;
-import utility.ExampleConfigurations;
 
 /**
  * A single-topic publisher that creates Order Event events and publishes them. This example
@@ -45,9 +45,9 @@ public class PublishStream extends CommonContext {
 
     private ByteString lastPublishedReplayId;
 
-    public PublishStream(ExampleConfigurations exampleConfigurations) {
-        super(exampleConfigurations);
-        setupTopicDetails(exampleConfigurations.getTopic(), true, true);
+    public PublishStream(PubSubApiConfig pubSubApiConfig) {
+        super(pubSubApiConfig);
+        setupTopicDetails(pubSubApiConfig.getPubsub().getTopic(), true, true);
     }
 
     /**
@@ -86,12 +86,6 @@ public class PublishStream extends CommonContext {
     /**
      * Helper function to validate the PublishResponse received. Also prints the RPC id of the call.
      *
-     * @param errorStatus
-     * @param finishLatch
-     * @param expectedResponseCount
-     * @param publishResponses
-     * @return
-     * @throws Exception
      */
     private void validatePublishResponse(CountDownLatch finishLatch,
                                                int expectedResponseCount, List<PublishResponse> publishResponses, AtomicInteger failed, int expectedNumEventsPublished) throws Exception {
@@ -198,11 +192,6 @@ public class PublishStream extends CommonContext {
     /**
      * Creates a StreamObserver for handling the incoming PublishResponse messages from the server.
      *
-     * @param errorStatus
-     * @param finishLatchRef
-     * @param expectedResponseCount
-     * @param publishResponses
-     * @return
      */
     private StreamObserver<PublishResponse> getDefaultPublishStreamObserver(AtomicReference<CountDownLatch> finishLatchRef, int expectedResponseCount,
                                                                             List<PublishResponse> publishResponses, AtomicInteger failed) {
@@ -243,13 +232,13 @@ public class PublishStream extends CommonContext {
     }
 
     public static void main(String[] args) throws IOException {
-        ExampleConfigurations exampleConfigurations = new ExampleConfigurations("arguments.yaml");
+        PubSubApiConfig pubSubApiConfig = PubSubApiConfig.getPubSubApiConfig();
 
         // Using the try-with-resource statement. The CommonContext class implements AutoCloseable in
         // order to close the resources used.
-        try (PublishStream example = new PublishStream(exampleConfigurations)) {
-            example.publishStream(exampleConfigurations.getNumberOfEventsToPublish(),
-                                  exampleConfigurations.getSinglePublishRequest());
+        try (PublishStream example = new PublishStream(pubSubApiConfig)) {
+            final var pubsub = pubSubApiConfig.getPubsub();
+            example.publishStream(pubsub.getPublishRequestSize(), pubsub.getSinglePublishRequest());
         } catch (Exception e) {
             printStatusRuntimeException("Error During PublishStream", e);
         }
