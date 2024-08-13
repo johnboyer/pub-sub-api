@@ -1,0 +1,451 @@
+{
+    "type": "record",
+    "name": "OpportunityChangeEvent",
+    "namespace": "com.salesforce.eventbus",
+    "fields":
+    [
+        {
+            "name": "ChangeEventHeader",
+            "type":
+            {
+                "type": "record",
+                "name": "ChangeEventHeader",
+                "fields":
+                [
+                    {
+                        "name": "entityName",
+                        "type": "string"
+                    },
+                    {
+                        "name": "recordIds",
+                        "type":
+                        {
+                            "type": "array",
+                            "items": "string"
+                        }
+                    },
+                    {
+                        "name": "changeType",
+                        "type":
+                        {
+                            "type": "enum",
+                            "name": "ChangeType",
+                            "symbols":
+                            [
+                                "CREATE",
+                                "UPDATE",
+                                "DELETE",
+                                "UNDELETE",
+                                "GAP_CREATE",
+                                "GAP_UPDATE",
+                                "GAP_DELETE",
+                                "GAP_UNDELETE",
+                                "GAP_OVERFLOW",
+                                "SNAPSHOT"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "changeOrigin",
+                        "type": "string"
+                    },
+                    {
+                        "name": "transactionKey",
+                        "type": "string"
+                    },
+                    {
+                        "name": "sequenceNumber",
+                        "type": "int"
+                    },
+                    {
+                        "name": "commitTimestamp",
+                        "type": "long"
+                    },
+                    {
+                        "name": "commitNumber",
+                        "type": "long"
+                    },
+                    {
+                        "name": "commitUser",
+                        "type": "string"
+                    },
+                    {
+                        "name": "nulledFields",
+                        "type":
+                        {
+                            "type": "array",
+                            "items": "string"
+                        }
+                    },
+                    {
+                        "name": "diffFields",
+                        "type":
+                        {
+                            "type": "array",
+                            "items": "string"
+                        }
+                    },
+                    {
+                        "name": "changedFields",
+                        "type":
+                        {
+                            "type": "array",
+                            "items": "string"
+                        }
+                    }
+                ]
+            },
+            "doc": "Data:ComplexValueType"
+        },
+        {
+            "name": "AccountId",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "ForeignKey:EntityId",
+            "default": null
+        },
+        {
+            "name": "IsPrivate",
+            "type":
+            [
+                "null",
+                "boolean"
+            ],
+            "doc": "Data:Boolean",
+            "default": null
+        },
+        {
+            "name": "Name",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "Data:Text",
+            "default": null
+        },
+        {
+            "name": "Description",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "Data:StringPlusClob",
+            "default": null
+        },
+        {
+            "name": "StageName",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "Data:DynamicEnum",
+            "default": null
+        },
+        {
+            "name": "Amount",
+            "type":
+            [
+                "null",
+                "double"
+            ],
+            "doc": "Data:Currency",
+            "default": null
+        },
+        {
+            "name": "Probability",
+            "type":
+            [
+                "null",
+                "double"
+            ],
+            "doc": "Data:Percent",
+            "default": null
+        },
+        {
+            "name": "ExpectedRevenue",
+            "type":
+            [
+                "null",
+                "double"
+            ],
+            "doc": "Data:Currency",
+            "default": null
+        },
+        {
+            "name": "TotalOpportunityQuantity",
+            "type":
+            [
+                "null",
+                "double"
+            ],
+            "doc": "Data:Double",
+            "default": null
+        },
+        {
+            "name": "CloseDate",
+            "type":
+            [
+                "null",
+                "long"
+            ],
+            "doc": "Data:DateOnly",
+            "default": null
+        },
+        {
+            "name": "Type",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "Data:DynamicEnum",
+            "default": null
+        },
+        {
+            "name": "NextStep",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "Data:Text",
+            "default": null
+        },
+        {
+            "name": "LeadSource",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "Data:DynamicEnum",
+            "default": null
+        },
+        {
+            "name": "IsClosed",
+            "type":
+            [
+                "null",
+                "boolean"
+            ],
+            "doc": "Data:Boolean",
+            "default": null
+        },
+        {
+            "name": "IsWon",
+            "type":
+            [
+                "null",
+                "boolean"
+            ],
+            "doc": "Data:Boolean",
+            "default": null
+        },
+        {
+            "name": "ForecastCategory",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "Data:StaticEnum",
+            "default": null
+        },
+        {
+            "name": "ForecastCategoryName",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "Data:DynamicEnum",
+            "default": null
+        },
+        {
+            "name": "CampaignId",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "ForeignKey:EntityId",
+            "default": null
+        },
+        {
+            "name": "HasOpportunityLineItem",
+            "type":
+            [
+                "null",
+                "boolean"
+            ],
+            "doc": "Data:Boolean",
+            "default": null
+        },
+        {
+            "name": "Pricebook2Id",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "ForeignKey:EntityId",
+            "default": null
+        },
+        {
+            "name": "OwnerId",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "ForeignKey:EntityId",
+            "default": null
+        },
+        {
+            "name": "CreatedDate",
+            "type":
+            [
+                "null",
+                "long"
+            ],
+            "doc": "CreatedDate:DateTime",
+            "default": null
+        },
+        {
+            "name": "CreatedById",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "ForeignKey:EntityId",
+            "default": null
+        },
+        {
+            "name": "LastModifiedDate",
+            "type":
+            [
+                "null",
+                "long"
+            ],
+            "doc": "Data:DateTime",
+            "default": null
+        },
+        {
+            "name": "LastModifiedById",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "ForeignKey:EntityId",
+            "default": null
+        },
+        {
+            "name": "LastStageChangeDate",
+            "type":
+            [
+                "null",
+                "long"
+            ],
+            "doc": "Data:DateTime",
+            "default": null
+        },
+        {
+            "name": "ContactId",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "ForeignKey:EntityId",
+            "default": null
+        },
+        {
+            "name": "ContractId",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "ForeignKey:EntityId",
+            "default": null
+        },
+        {
+            "name": "LastAmountChangedHistoryId",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "ForeignKey:EntityId",
+            "default": null
+        },
+        {
+            "name": "LastCloseDateChangedHistoryId",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "ForeignKey:EntityId",
+            "default": null
+        },
+        {
+            "name": "DeliveryInstallationStatus__c",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "Data:DynamicEnum:00Nbm000002zors",
+            "default": null
+        },
+        {
+            "name": "TrackingNumber__c",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "Data:Text:00Nbm000002zorv",
+            "default": null
+        },
+        {
+            "name": "OrderNumber__c",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "Data:Text:00Nbm000002zoru",
+            "default": null
+        },
+        {
+            "name": "CurrentGenerators__c",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "Data:Text:00Nbm000002zorr",
+            "default": null
+        },
+        {
+            "name": "MainCompetitors__c",
+            "type":
+            [
+                "null",
+                "string"
+            ],
+            "doc": "Data:Text:00Nbm000002zort",
+            "default": null
+        }
+    ]
+}
